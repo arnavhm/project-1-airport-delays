@@ -72,7 +72,9 @@ Suggested next steps
 - Add a lightweight Streamlit dashboard to explore delays interactively.
 
 Contact
-- Arnav Hemant Mutt — [your-email] — LinkedIn: [your-linkedin] — GitHub: [your-github]
+- Arnav Hemanth Mutt — [arnavhmutt@gmail.com] 
+— LinkedIn: [www.linkedin.com/in/arnav-h-987390302] 
+— GitHub: [arnavhm]
 
 License
 - This project is for educational and portfolio use. Data source: US DOT BTS (2015).

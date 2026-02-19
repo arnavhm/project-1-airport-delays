@@ -184,9 +184,9 @@ All visualizations available in `reports/figures/`:
 **Arnav Hemanth Mutt**  
 B.E Data Science, DSATM Bangalore  
 Focus: Aviation Data Science & Operations Analytics  
-LinkedIn: [your-linkedin]  
-GitHub: [your-github]  
-Email: [your-email]
+LinkedIn: [www.linkedin.com/in/arnav-h-987390302]  
+GitHub: [arnavhm]  
+Email: [arnavhmutt@gmail.com]
 
 ---
 
