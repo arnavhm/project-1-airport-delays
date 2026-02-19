@@ -11,6 +11,10 @@ TL;DR
 - Peak delay period: Evening (5pm–9pm) — 24.78% delay rate
 - Worst month: June — 22.64% delay rate
 
+## 🚀 Live Interactive Dashboard
+**[Click here to view the live Streamlit Dashboard](YOUR_STREAMLIT_URL_HERE)**
+*Note: The live dashboard uses a 10% representative sample (~570k flights) to ensure fast load times in the web environment, while the Jupyter notebooks process the full 5.7M row dataset locally.*
+
 This repository contains the cleaning, analysis, and visualizations used to produce the above results. It is intended as a professional portfolio piece demonstrating data engineering, analysis and visualization skills applied to aviation operations.
 
 Contents
