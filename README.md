@@ -12,7 +12,7 @@ TL;DR
 - Worst month: June — 22.64% delay rate
 
 ## 🚀 Live Interactive Dashboard
-**[Click here to view the live Streamlit Dashboard](YOUR_STREAMLIT_URL_HERE)**
+**[Click here to view the live Streamlit Dashboard](https://project-1-airport-delays-8y3xnmabymvxt8q8di4gx7.streamlit.app/)**
 *Note: The live dashboard uses a 10% representative sample (~570k flights) to ensure fast load times in the web environment, while the Jupyter notebooks process the full 5.7M row dataset locally.*
 
 This repository contains the cleaning, analysis, and visualizations used to produce the above results. It is intended as a professional portfolio piece demonstrating data engineering, analysis and visualization skills applied to aviation operations.
