@@ -1,0 +1,17 @@
+# EngineWatch Architectural Config for Airport Delays
+data:
+  sample_path: "data/processed/flights_sample.csv"
+  airports_path: "data/raw/airports.csv"
+  airlines_path: "data/raw/airlines.csv"
+
+model:
+  random_state: 42
+  test_size: 0.2
+  target_column: "ARRIVAL_DELAY"
+  risk_threshold_minutes: 60  # Delays longer than this are considered severe
+  categorical_features: ["AIRLINE_NAME", "ORIGIN_AIRPORT", "DESTINATION_AIRPORT", "DAY_NAME", "TIME_OF_DAY"]
+  numeric_features: ["DISTANCE", "MONTH"]
+
+economic:
+  proactive_rebooking_cost: 150  # USD cost to rebook a passenger ahead of time
+  reactive_delay_penalty: 800    # USD penalty/cost per passenger for severe reactive delay/AOG

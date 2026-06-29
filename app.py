@@ -4,6 +4,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 import numpy as np
+import sys
+import joblib
+
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+from src.data.pipeline import load_and_preprocess_data
 
 # 1. Page Configuration (Wide layout, custom title)
 st.set_page_config(
@@ -107,60 +112,26 @@ def categorize_time_of_day(scheduled_dep):
     else:
         return "Night (9pm-5am)"
 
-# 3. Main Data Ingestion (Optimized types & dynamic columns)
+# 3. Main Data Ingestion (Shared Pipeline for Zero Training-Serving Skew)
 @st.cache_data
 def load_data():
-    path = "data/processed/flights_sample.csv"
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"Missing sample dataset: {path}")
-        
-    dtypes = {
-        "MONTH": "int8",
-        "DAY_OF_WEEK": "int8",
-        "AIRLINE": "str",
-        "ORIGIN_AIRPORT": "str",
-        "DESTINATION_AIRPORT": "str",
-        "SCHEDULED_DEPARTURE": "int16",
-        "ARRIVAL_DELAY": "float32",
-        "AIR_SYSTEM_DELAY": "float32",
-        "SECURITY_DELAY": "float32",
-        "AIRLINE_DELAY": "float32",
-        "LATE_AIRCRAFT_DELAY": "float32",
-        "WEATHER_DELAY": "float32",
-        "DISTANCE": "float32"
-    }
-    
-    df = pd.read_csv(path, dtype=dtypes)
-    df["ORIGIN_AIRPORT"] = df["ORIGIN_AIRPORT"].astype(str).str.strip()
-    df["DESTINATION_AIRPORT"] = df["DESTINATION_AIRPORT"].astype(str).str.strip()
-    
-    # Resolve full airline names
-    airline_map = load_airlines()
-    if airline_map:
-        df["AIRLINE_NAME"] = df["AIRLINE"].map(airline_map).fillna(df["AIRLINE"])
-    else:
-        df["AIRLINE_NAME"] = df["AIRLINE"]
-        
-    # Cast to category for performance
-    df["AIRLINE_NAME"] = df["AIRLINE_NAME"].astype("category")
-    df["ORIGIN_AIRPORT"] = df["ORIGIN_AIRPORT"].astype("category")
-    df["DESTINATION_AIRPORT"] = df["DESTINATION_AIRPORT"].astype("category")
-    
-    # Dynamic feature construction
+    df, config = load_and_preprocess_data()
+    # Add UI-specific derived columns
     if "ARRIVAL_DELAY" in df.columns:
         df["DELAY_CATEGORY"] = df["ARRIVAL_DELAY"].apply(categorize_delay)
-    if "SCHEDULED_DEPARTURE" in df.columns:
-        df["TIME_OF_DAY"] = df["SCHEDULED_DEPARTURE"].apply(categorize_time_of_day)
-        
-    day_map = {1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat", 7: "Sun"}
-    if "DAY_OF_WEEK" in df.columns:
-        df["DAY_NAME"] = df["DAY_OF_WEEK"].map(day_map)
-        
-    return df
+    return df, config
 
-with st.spinner("Initializing aviation analytics database..."):
+@st.cache_resource
+def load_model():
+    path = "artifacts/model_pipeline.joblib"
+    if os.path.exists(path):
+        return joblib.load(path)
+    return None
+
+with st.spinner("Initializing ML inference pipeline and loading data..."):
     try:
-        df = load_data()
+        df, config = load_data()
+        ml_model = load_model()
     except FileNotFoundError:
         st.error("Data file not found! Please ensure 'flights_sample.csv' is in 'data/processed/'.")
         st.stop()
@@ -660,8 +631,8 @@ with tab4:
         )
 
     st.markdown("---")
-    st.markdown("#### 🧠 Interactive Delay Risk Profiler")
-    st.caption("Calculate the historical flight delay probability based on combined operational factors.")
+    st.markdown("#### 🧠 ML-Powered Economic Decision Simulator")
+    st.caption("Live prediction of flight delay utilizing the trained model artifact, translated into financial rebooking decisions.")
     
     col_ui1, col_ui2 = st.columns([1, 1.2])
     
@@ -669,58 +640,58 @@ with tab4:
         ui_airline = st.selectbox("Select Airline", all_airlines)
         airport_volume = df["ORIGIN_AIRPORT"].value_counts()
         top_airports = sorted(airport_volume.head(50).index)
-        ui_airport = st.selectbox("Select Origin Airport", top_airports, index=top_airports.index("ORD") if "ORD" in top_airports else 0)
+        ui_origin = st.selectbox("Select Origin Airport", top_airports, index=top_airports.index("ORD") if "ORD" in top_airports else 0)
+        destinations = sorted(df[df["ORIGIN_AIRPORT"] == ui_origin]["DESTINATION_AIRPORT"].dropna().unique())
+        ui_dest = st.selectbox("Select Destination", destinations)
         ui_month = st.selectbox("Select Month", list(range(1, 13)), format_func=lambda x: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][x-1])
         ui_time = st.selectbox("Select Scheduled Departure Shift", ["Morning (5am-12pm)", "Afternoon (12pm-5pm)", "Evening (5pm-9pm)", "Night (9pm-5am)"])
+        ui_day = st.selectbox("Select Day of Week", ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
         
     with col_ui2:
-        base_rate = 17.86  # System constant baseline from the full dataset
-        
-        def get_rate(col, val):
-            subset = df[df[col] == val]
-            if len(subset) >= 50:
-                delayed = (subset["ARRIVAL_DELAY"] > 15).sum()
-                return (delayed / len(subset)) * 100
-            return base_rate
+        if ml_model is not None:
+            # Construct inference dataframe matching training features
+            inference_df = pd.DataFrame({
+                "AIRLINE_NAME": [ui_airline],
+                "ORIGIN_AIRPORT": [ui_origin],
+                "DESTINATION_AIRPORT": [ui_dest],
+                "DAY_NAME": [ui_day],
+                "TIME_OF_DAY": [ui_time],
+                "DISTANCE": [df[(df["ORIGIN_AIRPORT"] == ui_origin) & (df["DESTINATION_AIRPORT"] == ui_dest)]["DISTANCE"].mean() if not df[(df["ORIGIN_AIRPORT"] == ui_origin) & (df["DESTINATION_AIRPORT"] == ui_dest)].empty else 500],
+                "MONTH": [ui_month]
+            })
             
-        airline_rate = get_rate("AIRLINE_NAME", ui_airline)
-        airport_rate = get_rate("ORIGIN_AIRPORT", ui_airport)
-        month_rate = get_rate("MONTH", ui_month)
-        time_rate = get_rate("TIME_OF_DAY", ui_time)
-        
-        adj_airline = airline_rate - base_rate
-        adj_airport = airport_rate - base_rate
-        adj_month = month_rate - base_rate
-        adj_time = time_rate - base_rate
-        
-        estimated_risk = max(0.0, min(100.0, base_rate + adj_airline + adj_airport + adj_month + adj_time))
-        
-        factors = ["Baseline Risk", "Airline Effect", "Airport Congestion", "Seasonal Factor", "Time of Day Factor", "Estimated Flight Risk"]
-        values = [base_rate, adj_airline, adj_airport, adj_month, adj_time, estimated_risk]
-        colors = ["#94a3b8", 
-                  "#f87171" if adj_airline > 0 else "#34d399",
-                  "#f87171" if adj_airport > 0 else "#34d399",
-                  "#f87171" if adj_month > 0 else "#34d399",
-                  "#f87171" if adj_time > 0 else "#34d399",
-                  "#6366f1"]
-                  
-        fig_waterfall = go.Figure(go.Bar(
-            x=values,
-            y=factors,
-            orientation='h',
-            marker_color=colors,
-            text=[f"{v:+.1f}%" if i not in [0, 5] else f"{v:.1f}%" for i, v in enumerate(values)],
-            textposition='outside',
-        ))
-        
-        fig_waterfall.update_layout(
-            title=f"Delay Risk Factors Breakdown (Total: {estimated_risk:.1f}%)",
-            xaxis=dict(title="Probability Impact (%)", range=[-20, 100]),
-            yaxis=dict(autorange="reversed"),
-            margin=dict(t=40, b=0, l=10, r=40),
-            height=300
-        )
-        st.plotly_chart(fig_waterfall, use_container_width=True)
+            # Cast categoricals
+            for c in config["model"]["categorical_features"]:
+                inference_df[c] = inference_df[c].astype("category")
+                
+            predicted_delay = ml_model.predict(inference_df)[0]
+            
+            st.markdown(f"##### Predicted Arrival Delay: **{predicted_delay:+.1f} minutes**")
+            
+            # Economic Translation (EngineWatch AOG logic equivalent)
+            risk_threshold = config["model"]["risk_threshold_minutes"]
+            cost_proactive = config["economic"]["proactive_rebooking_cost"]
+            cost_reactive = config["economic"]["reactive_delay_penalty"]
+            
+            if predicted_delay > risk_threshold:
+                st.error(f"🚨 **HIGH RISK**: Severe Delay > {risk_threshold} mins Predicted.")
+                st.markdown(
+                    f"""
+                    **Economic Recommendation:** Proactively rebook priority passengers.
+                    * Proactive Rebooking Cost: **${cost_proactive}**
+                    * Estimated Reactive Penalty (AOG/SLA): **${cost_reactive}**
+                    * Expected Value Savings per passenger: **${cost_reactive - cost_proactive}**
+                    """
+                )
+            elif predicted_delay > 15:
+                st.warning("⚠️ **MODERATE RISK**: Minor delay predicted. Monitor conditions.")
+                st.markdown("**Economic Recommendation:** Standard operations. No proactive rebooking required.")
+            else:
+                st.success("✅ **LOW RISK**: Flight predicted to be on time.")
+                st.markdown("**Economic Recommendation:** Standard operations. No proactive rebooking required.")
+                
+        else:
+            st.error("ML Model artifact not found. Please run `python scripts/train_delay_model.py`.")
 
 # --- TAB 5: ROLLS-ROYCE CASE STUDY (Engine Health & SLA Optimizer) ---
 with tab5:
