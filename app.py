@@ -126,7 +126,8 @@ def load_data():
         "SECURITY_DELAY": "float32",
         "AIRLINE_DELAY": "float32",
         "LATE_AIRCRAFT_DELAY": "float32",
-        "WEATHER_DELAY": "float32"
+        "WEATHER_DELAY": "float32",
+        "DISTANCE": "float32"
     }
     
     df = pd.read_csv(path, dtype=dtypes)
@@ -184,7 +185,7 @@ if selected_origin:
     filtered_df = filtered_df[filtered_df["ORIGIN_AIRPORT"].isin(selected_origin)]
 filtered_df = filtered_df[(filtered_df["MONTH"] >= selected_months[0]) & (filtered_df["MONTH"] <= selected_months[1])]
 
-# ----------------- INNOVATION 1: WHAT-IF SCENARIO SIMULATOR -----------------
+# ----------------- WHAT-IF SCENARIO SIMULATOR -----------------
 with st.sidebar:
     st.markdown("---")
     st.markdown("### 🎛️ Operational Improvement Simulator")
@@ -231,7 +232,7 @@ if "ARRIVAL_DELAY" in sim_df.columns:
 original_filtered_df = filtered_df.copy()
 filtered_df = sim_df
 
-# ----------------- INNOVATION 2: ROUTE EXPLORER SIDEBAR -----------------
+# ----------------- ROUTE EXPLORER SIDEBAR -----------------
 with st.sidebar:
     st.markdown("---")
     st.markdown("### 🛣️ Route Explorer")
@@ -290,11 +291,12 @@ if sim_nk_pct > 0 or sim_ord_pct > 0 or sim_evening_pct > 0:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # 7. Tabbed Interface for Advanced Analysis (With Geospatial and Statistics additions)
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 Executive Overview", 
     "🛫 Airline Deep-Dive", 
     "⏱️ Temporal & Congestion Trends",
-    "📖 Methodology & Statistics"
+    "📖 Methodology & Statistics",
+    "⚙️ Rolls-Royce SLA Optimizer"
 ])
 
 # --- TAB 1: OVERVIEW (Pie + Geospatial Scatter Mapbox + Route Overlay + Causes) ---
@@ -372,8 +374,7 @@ with tab1:
                         title="Geospatial Airport Network (Flight Volume & Congestion Map)",
                     )
                     
-                    # ----------------- INNOVATION 2 MAP PATH OVERLAY -----------------
-                    # Get coordinates for the route origin and destination
+                    # Map Path Overlay
                     origin_coords = airports_df[airports_df["IATA_CODE"] == selected_route_origin]
                     dest_coords = airports_df[airports_df["IATA_CODE"] == selected_route_dest]
                     
@@ -405,7 +406,7 @@ with tab1:
 
     st.markdown("---")
     
-    # ----------------- INNOVATION 3: ROOT CAUSE ATTRIBUTION -----------------
+    # Delay Cause Attribution Chart
     col_causes, col_airports = st.columns(2)
     
     with col_causes:
@@ -587,7 +588,7 @@ with tab3:
 
     st.markdown("---")
     
-    # ----------------- INNOVATION 2: ROUTE ANALYTICS DISPLAY -----------------
+    # Route Explorer Analytics
     st.markdown("#### 🛣️ Flight Route Congestion & Network Path Analyzer")
     route_flights = original_filtered_df[
         (original_filtered_df["ORIGIN_AIRPORT"] == selected_route_origin) & 
@@ -720,3 +721,81 @@ with tab4:
             height=300
         )
         st.plotly_chart(fig_waterfall, use_container_width=True)
+
+# --- TAB 5: ROLLS-ROYCE CASE STUDY (Engine Health & SLA Optimizer) ---
+with tab5:
+    st.markdown("#### ⚙️ Rolls-Royce Engine Health & TotalCare™ SLA Optimizer")
+    st.markdown(
+        """
+        *This specialized module demonstrates prescriptive analytics tailored for **Engine Health Monitoring (EHM)** and 
+        **TotalCare® (Power by the Hour)** fleet contract management.*
+        """
+    )
+    
+    col_rr1, col_rr2 = st.columns([1.2, 1])
+    
+    with col_rr1:
+        st.markdown("<h4 class='premium-h4'>TotalCare® Service Level Agreement (SLA) Optimizer</h4>", unsafe_allow_html=True)
+        st.caption("Simulate deploying predictive EHM analytics across the fleet to prevent mechanical delays.")
+        
+        # Slider to simulate EHM predictive maintenance coverage
+        ehm_coverage = st.slider("Predictive Maintenance (EHM) Deployment Coverage", 0, 100, 0, 
+                                 help="Percentage of the fleet equipped with real-time predictive anomaly detection.")
+        
+        # SLA contract penalty rate
+        sla_penalty_rate = st.number_input("SLA Delay Penalty Rate ($/hour)", min_value=1000, max_value=15000, value=5000, step=500)
+        
+    with col_rr2:
+        # Calculate SLA savings
+        if "AIRLINE_DELAY" in filtered_df.columns:
+            total_maint_delay_mins = filtered_df["AIRLINE_DELAY"].sum()
+            # EHM prevention rate: assume predicting/preventing 40% of maintenance delays
+            prevention_rate = 0.40
+            mins_saved = total_maint_delay_mins * (ehm_coverage / 100.0) * prevention_rate
+            
+            # Scale up from 10% sample
+            scaled_mins_saved = mins_saved * 10
+            dollar_savings = (scaled_mins_saved / 60.0) * sla_penalty_rate
+            
+            st.metric("Maintenance Delay Avoided", f"{scaled_mins_saved:,.0f} mins")
+            st.metric("TotalCare™ Penalty Savings", f"${dollar_savings:,.2f}")
+        else:
+            st.warning("Airline Delay telemetry not available in dataset.")
+
+    st.markdown("---")
+    st.markdown("<h4 class='premium-h4'>Turbine Thermal Fatigue Index vs. Flight Distance Profile</h4>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        **Aviation Engineering Context:** Takeoffs and landings subject jet engines to severe thermal transients and aerodynamic loads (wear cycles). 
+        Short-haul flights (frequent takeoffs) undergo significantly higher **thermal fatigue cycles per flight hour** than long-haul flights.
+        """
+    )
+    
+    if "DISTANCE" in filtered_df.columns:
+        # Categorize flights by distance
+        # Copy to avoid setting with copy warning
+        plot_df = filtered_df.copy()
+        plot_df["DISTANCE_GROUP"] = pd.cut(plot_df["DISTANCE"], 
+                                           bins=[0, 300, 700, 1200, 2000, 10000],
+                                           labels=["Short Range (<300 mi)", "Short-Medium (300-700 mi)", "Medium (700-1200 mi)", "Medium-Long (1200-2000 mi)", "Long Range (>2000 mi)"])
+        
+        # Group by and calculate average distance
+        fatigue_stats = plot_df.groupby("DISTANCE_GROUP", observed=True).agg(
+            Avg_Distance=("DISTANCE", "mean")
+        ).reset_index()
+        
+        # Turbine Fatigue Index Formula: takeoffs per 1000 flight hours * stress factor
+        fatigue_stats["Takeoff Cycles per 1000 hrs"] = (1000 / (fatigue_stats["Avg_Distance"] / 500 + 0.5)).round(1)
+        fatigue_stats["Turbine Thermal Fatigue (Wear Units)"] = (fatigue_stats["Takeoff Cycles per 1000 hrs"] * 1.5).round(1)
+        
+        fig_fatigue = px.bar(
+            fatigue_stats,
+            x="DISTANCE_GROUP",
+            y="Turbine Thermal Fatigue (Wear Units)",
+            color="Turbine Thermal Fatigue (Wear Units)",
+            color_continuous_scale="Viridis",
+            labels={"DISTANCE_GROUP": "Flight Range Category", "Turbine Thermal Fatigue (Wear Units)": "Fatigue Index (Per 1,000 Flight Hours)"},
+            title="Estimated Turbine Blade Thermal Stress by Flight Profile"
+        )
+        fig_fatigue.update_layout(height=380, margin=dict(t=40, b=0, l=0, r=0))
+        st.plotly_chart(fig_fatigue, use_container_width=True)
